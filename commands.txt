@@ -1,0 +1,68 @@
+# Make s3 bucket
+aws s3 mb s3://robhughes-test-lambda-function
+aws s3 ls s3://robhughes-test-lambda-function
+cd dev/git/
+mkdir acloudguru_lambda_course
+cd acloudguru_lambda_course/
+
+# Lab 1
+cd lab1
+
+# Copy sample data to new s3 bucket
+aws s3 cp sample.csv s3://robhughes-test-lambda-function
+zip -r csv_parse.zip *.js
+
+# upload a zip file containing lambda function source code
+aws lambda update-function-code --zip-file=fileb://csv_parse.zip --function-name cloudguru-lab1
+# change the handler function. File name + function name within file that implements function
+aws lambda update-function-configuration --function-name cloudguru-lab1 --handler csv_read.handler
+
+# Put some more sample files into s3 bucket
+aws s3 cp sample.csv s3://robhughes-test-lambda-function/sample2.csv
+aws s3 cp sample.csv s3://robhughes-test-lambda-function/sample3.csv
+aws s3 cp sample.csv s3://robhughes-test-lambda-function/sample4.csv
+
+# Publish the lambda function to AWS lambda
+aws lambda update-function-code --zip-file=fileb://csv_parse.zip --function-name cloudguru-lab1 --publish
+
+# Upload new zip file containing latest source code and a new handler function
+zip csv_parse.zip csv_sum.js 
+aws lambda update-function-code --zip-file=fileb://csv_parse.zip --function-name cloudguru-lab1 
+aws lambda update-function-configuration --function-name cloudguru-lab1 --handler csv_sum.handler
+aws lambda update-function-code --zip-file=fileb://csv_parse.zip --function-name cloudguru-lab1 --publish
+
+# Lab 2. Integration with kinesis
+cd lab2
+jar -tf kinesis_sums.zip 
+
+# Updload zip file containing source code for lambda function and publish function
+aws lambda update-function-code --zip-file=fileb://kinesis_sums.zip --function-name cloudguru-lab2 --publish
+
+# Use python to base64 encode some data
+python
+
+# Send some test data to kinesis via command line
+aws kinesis put-records --stream-name cloudguru-lab2 --records file://sample_records.json
+
+# Lab 3. Integrate with DynamoDB streams
+cd lab3
+jar -tf ddb_listener.zip 
+aws lambda update-function-code --zip-file=fileb://ddb_listener.zip --function-name cloudguru-lab3 --publish
+
+# Use command line to simulate a DynamoDB streams event in response to an update being made to a DynamoDB table. NOTE: Can use DynamoDB console to manually update/add items to table
+aws lambda invoke --function-name cloudguru-lab3 --payload "$(cat sample_event.json)" output.txt
+
+# NOTE: The A Cloud Guru lambda lab didn't call this out but you must update the file containing sample event data to use the correct AWS region and arn for your DynamoDB table
+cp sample_event.json sample_event1.json 
+vi sample_event1.json 
+aws lambda invoke --function-name cloudguru-lab3 --payload "$(cat sample_event1.json)" output.txt
+vi sample_event1.json 
+aws lambda invoke --function-name cloudguru-lab3 --payload "$(cat sample_event1.json)" output.txt
+
+# NOTE: You must update the index.js file and update the name of the DynamoDB table if you used a different table name then the instructor used in the lab
+vi index.js 
+jar -tf ddb_listener.zip 
+rm ddb_listener.zip 
+zip ddb_listener.zip index.js 
+aws lambda update-function-code --zip-file=fileb://ddb_listener.zip --function-name cloudguru-lab3 --publish
+aws lambda invoke --function-name cloudguru-lab3 --payload "$(cat sample_event1.json)" output.txt
